@@ -75,7 +75,8 @@ for (contrast in contrast_names) {
   res_table_clean <- res_table %>%
     rownames_to_column("PG.ProteinGroups") %>%
     left_join(final_clean_dataset[, c("PG.ProteinGroups", "PG.Genes", "PG.ProteinDescriptions")], by = "PG.ProteinGroups") %>%
-    select(PG.ProteinGroups, PG.Genes, PG.ProteinDescriptions, logFC, AveExpr, t, P.Value, adj.P.Val, B)
+    # Explicitly call dplyr::select to prevent limma package conflicts
+    dplyr::select(PG.ProteinGroups, PG.Genes, PG.ProteinDescriptions, logFC, AveExpr, t, P.Value, adj.P.Val, B)
   
   # Save file
   filename <- paste0("~/OneDrive - University of Eastern Finland/Projects/Aakash_Mali/Results/Proteomics_Results/", contrast, "_Full_Results.txt")
@@ -111,11 +112,13 @@ for (contrast in contrast_names) {
   sig_genes <- plot_data %>% filter(adj.P.Val < 0.05)
   if(nrow(sig_genes) > 0) {
     raw_cutoff_for_adjusted <- max(sig_genes$P.Value, na.rm = TRUE)
+    # Assign the functional geom_hline directly here
     fdr_line <- geom_hline(yintercept = -log10(raw_cutoff_for_adjusted), linetype = "dashed", color = "blue", alpha = 0.7)
     subtitle_text <- "Solid Line: Raw P < 0.05 | Dashed Line: FDR < 0.05"
   } else {
-    fdr_line <- geom_blank() # Does not crash the plot loop if 0 hits found
-    subtitle_text = "Solid Line: Raw P < 0.05 | No genes passed FDR < 0.05"
+    # Create an empty geom layer so the ggplot structure doesn't break if hits are 0
+    fdr_line <- geom_blank() 
+    subtitle_text <- "Solid Line: Raw P < 0.05 | No genes passed FDR < 0.05"
   }
   
   # 1. Establish custom coloring categories (4 groups based on adj.P.Val and logFC)
@@ -167,15 +170,17 @@ for (contrast in contrast_names) {
     
     # Two horizontal lines: One for raw p-value and one for adjusted p-value
     geom_hline(yintercept = -log10(0.05), linetype = "solid", color = "darkred", alpha = 0.7) + 
-    geom_hline(yintercept = -log10(raw_cutoff_for_adjusted), linetype = "dashed", color = "blue", alpha = 0.7) + 
+    # Inject the dynamic fdr_line layer here. 
+    # It draws a blue dashed line if hits exist, or does nothing safely if hits are 0.
+    fdr_line + 
     
     # Formatting text architecture (Enforcing serif globally)
     theme_minimal(base_family = "serif") +
     labs(
       title = paste("Volcano Plot:", gsub("_", " ", contrast)),
       subtitle = "Solid Line: Raw P-Value < 0.05 | Dashed Line: Adjusted P-Value < 0.05",
-      x = "Log2 Fold Change",
-      y = "-Log10 Raw P-Value",
+      x = expression (log[2]~"Fold Change"),
+      y = expression (-log[10]~(P)),
       color = "Expression Status"
     ) +
     theme(
